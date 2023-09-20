@@ -14,7 +14,7 @@ func Test_Connect(t *testing.T) {
 
 
 	
-	client, _, err := Connect(ctx,"ws://localhost:8188/")
+	client, _, err := Connect(ctx,"ws://localhost:8188/janus")
 	if err != nil {
 		t.Fail()
 		return
@@ -24,14 +24,14 @@ func Test_Connect(t *testing.T) {
 
 
 
-	mess, err := client.Info(ctx)
+	mess, err := client.Info(ctx, "")
 	if err != nil {
 		t.Fail()
 		return
 	}
 	t.Log(mess)
 
-	sess, err := client.Create(ctx)
+	sess, err := client.Create(ctx,"")
 	if err != nil {
 		t.Fail()
 		return

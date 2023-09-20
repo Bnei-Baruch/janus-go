@@ -23,12 +23,13 @@ const (
 )
 
 func unexpected(request string) error {
-	return fmt.Errorf("Unexpected response received to '%s' request", request)
+	return fmt.Errorf("unexpected response received to '%s' request", request)
 }
 
-func newRequest(method string) (map[string]interface{}, chan interface{}) {
+func newRequest(method, token string) (map[string]interface{}, chan interface{}) {
 	req := make(map[string]interface{}, 8)
 	req["janus"] = method
+	req["token"] = token
 	return req, make(chan interface{})
 }
 
@@ -175,7 +176,7 @@ func (session *Session) KeepAliveSender(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			_, err := session.KeepAlive(ctx)
+			_, err := session.KeepAlive(ctx, "")
 			if err != nil {
 				return err
 			}
@@ -285,8 +286,8 @@ func (gateway *Gateway) recv(ctx context.Context) error {
 
 // Info sends an info request to the Gateway.
 // On success, an InfoMsg will be returned and error will be nil.
-func (gateway *Gateway) Info(ctx context.Context) (*InfoMsg, error) {
-	req, ch := newRequest("info")
+func (gateway *Gateway) Info(ctx context.Context, token string) (*InfoMsg, error) {
+	req, ch := newRequest("info", token)
 	err := gateway.send(ctx, req, ch)
 	if err != nil {
 		return nil, err
@@ -311,8 +312,8 @@ func (gateway *Gateway) Info(ctx context.Context) (*InfoMsg, error) {
 
 // Create sends a create request to the Gateway.
 // On success, a new Session will be returned and error will be nil.
-func (gateway *Gateway) Create(ctx context.Context) (*Session, error) {
-	req, ch := newRequest("create")
+func (gateway *Gateway) Create(ctx context.Context, token string) (*Session, error) {
+	req, ch := newRequest("create", token)
 	err := gateway.send(ctx, req, ch)
 	if err != nil {
 		return nil, err
@@ -373,8 +374,8 @@ func (session *Session) send(ctx context.Context, msg map[string]interface{}, tr
 // Attach sends an attach request to the Gateway within this session.
 // plugin should be the unique string of the plugin to attach to.
 // On success, a new Handle will be returned and error will be nil.
-func (session *Session) Attach(ctx context.Context, plugin string) (*Handle, error) {
-	req, ch := newRequest("attach")
+func (session *Session) Attach(ctx context.Context, token, plugin string) (*Handle, error) {
+	req, ch := newRequest("attach", token)
 	req["plugin"] = plugin
 	err := session.send(ctx, req, ch)
 	if err != nil {
@@ -410,8 +411,8 @@ func (session *Session) Attach(ctx context.Context, plugin string) (*Handle, err
 
 // KeepAlive sends a keep-alive request to the Gateway.
 // On success, an AckMsg will be returned and error will be nil.
-func (session *Session) KeepAlive(ctx context.Context) (*AckMsg, error) {
-	req, ch := newRequest("keepalive")
+func (session *Session) KeepAlive(ctx context.Context, token string) (*AckMsg, error) {
+	req, ch := newRequest("keepalive", token)
 	err := session.send(ctx, req, ch)
 	if err != nil {
 		return nil, err
@@ -437,8 +438,8 @@ func (session *Session) KeepAlive(ctx context.Context) (*AckMsg, error) {
 // Destroy sends a destroy request to the Gateway to tear down this session.
 // On success, the Session will be removed from the Gateway.Sessions map, an
 // AckMsg will be returned and error will be nil.
-func (session *Session) Destroy(ctx context.Context) (*AckMsg, error) {
-	req, ch := newRequest("destroy")
+func (session *Session) Destroy(ctx context.Context, token string) (*AckMsg, error) {
+	req, ch := newRequest("destroy", token)
 	err := session.send(ctx, req, ch)
 	if err != nil {
 		return nil, err
@@ -493,8 +494,8 @@ func (handle *Handle) send(ctx context.Context, msg map[string]interface{}, tran
 }
 
 // Request sends a sync request
-func (handle *Handle) Request(ctx context.Context, body interface{}) (*SuccessMsg, error) {
-	req, ch := newRequest("message")
+func (handle *Handle) Request(ctx context.Context,token string, body interface{}) (*SuccessMsg, error) {
+	req, ch := newRequest("message", token)
 	if body != nil {
 		req["body"] = body
 	}
@@ -524,8 +525,8 @@ func (handle *Handle) Request(ctx context.Context, body interface{}) (*SuccessMs
 // body should be the plugin data to be passed to the plugin, and jsep should
 // contain an optional SDP offer/answer to establish a WebRTC PeerConnection.
 // On success, an EventMsg will be returned and error will be nil.
-func (handle *Handle) Message(ctx context.Context, body, jsep interface{}) (*EventMsg, error) {
-	req, ch := newRequest("message")
+func (handle *Handle) Message(ctx context.Context, token string, body, jsep interface{}) (*EventMsg, error) {
+	req, ch := newRequest("message", token)
 	if body != nil {
 		req["body"] = body
 	}
@@ -566,8 +567,8 @@ GetMessage: // No tears..
 //			"completed": true
 //		}
 // On success, an AckMsg will be returned and error will be nil.
-func (handle *Handle) Trickle(ctx context.Context, candidate interface{}) (*AckMsg, error) {
-	req, ch := newRequest("trickle")
+func (handle *Handle) Trickle(ctx context.Context,token string, candidate interface{}) (*AckMsg, error) {
+	req, ch := newRequest("trickle", token)
 	req["candidate"] = candidate
 	err := handle.send(ctx, req, ch)
 	if err != nil {
@@ -595,8 +596,8 @@ func (handle *Handle) Trickle(ctx context.Context, candidate interface{}) (*AckM
 // a new PeerConnection with a plugin.
 // candidates should be an array of ICE candidates.
 // On success, an AckMsg will be returned and error will be nil.
-func (handle *Handle) TrickleMany(ctx context.Context, candidates interface{}) (*AckMsg, error) {
-	req, ch := newRequest("trickle")
+func (handle *Handle) TrickleMany(ctx context.Context,token string, candidates interface{}) (*AckMsg, error) {
+	req, ch := newRequest("trickle", token)
 	req["candidates"] = candidates
 	err := handle.send(ctx, req, ch)
 	if err != nil {
@@ -622,8 +623,8 @@ func (handle *Handle) TrickleMany(ctx context.Context, candidates interface{}) (
 
 // Detach sends a detach request to the Gateway to remove this handle.
 // On success, an AckMsg will be returned and error will be nil.
-func (handle *Handle) Detach(ctx context.Context) (*AckMsg, error) {
-	req, ch := newRequest("detach")
+func (handle *Handle) Detach(ctx context.Context, token string) (*AckMsg, error) {
+	req, ch := newRequest("detach", token)
 	err := handle.send(ctx, req, ch)
 	if err != nil {
 		return nil, err
