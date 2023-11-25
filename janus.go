@@ -19,7 +19,7 @@ import (
 // The message types are defined in RFC 6455, section 11.8.
 const (
 	pingMessage     = 9
-	timeoutDuration = 1 * time.Second
+	timeoutDuration = 10 * time.Second
 )
 
 func unexpected(request string) error {
