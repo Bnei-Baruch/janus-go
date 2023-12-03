@@ -1,4 +1,4 @@
-module github.com/bnei-baruch/janus-go
+module github.com/Bnei-Baruch/janus-go
 
 go 1.21
 
